@@ -2,6 +2,8 @@
 // Ignore this --- it uses Arduino.h, which is not compatible with ESP-IDF
 // Functions have to be modified to work with ESP IDF library
 
+#include "hub75.h"
+
 extern "C" void app_main()
 {
  Hub75Config config{};

@@ -1,4 +1,6 @@
-#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+// #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+// Ignore this --- it uses Arduino.h, which is not compatible with ESP-IDF
+// Functions have to be modified to work with ESP IDF library
 
 extern "C" void app_main()
 {

@@ -1,6 +1,6 @@
-// #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
-// Ignore this --- it uses Arduino.h, which is not compatible with ESP-IDF
-// Functions have to be modified to work with ESP IDF library
+#include <stdio.h>
+#include "hub75.h"
+// include RTOS and config?
 
 #include "hub75.h"
 
@@ -43,6 +43,11 @@ extern "C" void app_main()
     Hub75Driver driver(config);
     driver.begin();
 
-     // Test: red pixel at x = 10, y = 10
-    driver.set_pixel(10, 10, 255, 0, 0);
+    driver.set_brightness(128);  // Set brightness to 50%
+
+    driver.clear();  // Clear the display
+
+    driver.set_pixel(10, 10, 255, 0, 0); // Test: red pixel at x = 10, y = 10
+
+    driver.flip_buffer();  // Show the changes on the display
 }

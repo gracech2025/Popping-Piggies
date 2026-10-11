@@ -1,4 +1,5 @@
 #include "hub75.h"
+#include "lvgl.h"
 
 extern "C" void app_main()
 {
@@ -39,6 +40,35 @@ extern "C" void app_main()
     Hub75Driver driver(config);
     driver.begin();
 
-     // Test: red pixel at x = 10, y = 10
-    driver.set_pixel(10, 10, 255, 0, 0);
+    driver.clear();  // Clear the back buffer
+
+    // Create parent containers for the two panels and top/bottom text
+    // These positions and sizes are estimates until we can test on the actual hardware!
+    lv_obj_t *left_panel = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(left_panel, 50, 25);
+    lv_obj_align(left_panel, LV_ALIGN_LEFT_MID, 30, 0);
+
+    lv_obj_t *right_panel = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(right_panel, 50, 25);
+    lv_obj_align(right_panel, LV_ALIGN_RIGHT_MID, -30, 0);
+
+    lv_obj_t *top_text = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(top_text, 100, 8);
+    lv_obj_align(top_text, LV_ALIGN_TOP_MID, 0, 4);
+
+    lv_obj_t *bottom_text = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(bottom_text, 100, 6);
+    lv_obj_align(bottom_text, LV_ALIGN_BOTTOM_MID, 0, -4);
+
+    driver.flip_buffer();  // Show the changes on the display
+}
+
+
+
+// Helper function to convert RGB888 to RGB565
+uint16_t rgb888to565(uint8_t r, uint8_t g, uint8_t b) {
+    uint16_t r5 = (r >> 3) & 0x1F;
+    uint16_t g6 = (g >> 2) & 0x3F;
+    uint16_t b5 = (b >> 3) & 0x1F;
+    return (r5 << 11) | (g6 << 5) | b5;
 }

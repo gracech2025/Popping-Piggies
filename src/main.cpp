@@ -187,7 +187,6 @@ void handleEvent(ScreenState &currentState, Hub75Driver &driver) {
 // --- Display the start screen ---
 void startScreenDisplay(Hub75Driver &driver, int &topScore) {
     // Stop any ongoing animations or timers
-    currentState = START_SCREEN;
     
     lv_label_set_text(startGameText, "Start Game");
     lv_label_set_text_fmt(topScoreText, "Top Score: %d", topScore);
@@ -201,8 +200,6 @@ void startScreenDisplay(Hub75Driver &driver, int &topScore) {
 void countdownScreenDisplay(Hub75Driver &driver) {
     // Stop any ongoing animations or timers
 
-    currentState = COUNTDOWN_SCREEN;
-
     // Display countdown timer and "get ready" text
     driver.flip_buffer();  // Show the changes on the display
 }
@@ -211,8 +208,6 @@ void countdownScreenDisplay(Hub75Driver &driver) {
 void gameScreenDisplay(Hub75Driver &driver, ScoreInfo &scoreInfo) {
     // Stop any ongoing animations or timers
 
-    currentState = GAME_SCREEN;
-
     // Display current score, top score, and streak text
     driver.flip_buffer();  // Show the changes on the display
 }
@@ -220,8 +215,6 @@ void gameScreenDisplay(Hub75Driver &driver, ScoreInfo &scoreInfo) {
 // --- Display the end screen ---
 void endScreenDisplay(Hub75Driver &driver, ScoreInfo &scoreInfo) {
     // Stop any ongoing animations or timers
-
-    currentState = END_SCREEN;
 
     // Display final score, top score, and "play again" text
     driver.flip_buffer();  // Show the changes on the display

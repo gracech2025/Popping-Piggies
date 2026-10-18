@@ -1,5 +1,7 @@
 #include "hub75.h"
 #include "lvgl.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 // ---------------------------------
 // LED BOARD SETUP
@@ -50,7 +52,11 @@ extern "C" void app_main()
 
     //lv_init(); //initialize LVGL
 
-    //need to connect LVGL with HUB75 driver, but not sure how to do that yet
+    while (true) {
+        // Main loop: handle LVGL tasks and refresh the display
+        lv_timer_handler();  // Handle LVGL tasks
+        vTaskDelay(pdMS_TO_TICKS(10));  // Delay to allow other tasks to run
+    }
 }
 
 // ---------------------------------
@@ -86,6 +92,11 @@ static lv_obj_t *topScoreText;
 static int topScore = 0;
 ScreenState currentState = START_SCREEN;
 
+// Timing variables
+static const int STATE_DURATION [] = {0, 3, 30, 0}; // Duration for each state in seconds
+static lv_timer_t *stateTimer = nullptr;
+static int timeRemaining = 0;
+
 //global variables for screens and text objects
 static lv_obj_t *startScreen;
 static lv_obj_t *countdownScreen;
@@ -103,6 +114,10 @@ void startScreenDisplay(Hub75Driver &driver, int &topScore);
 void countdownScreenDisplay(Hub75Driver &driver);
 void gameScreenDisplay(Hub75Driver &driver, ScoreInfo &scoreInfo);
 void endScreenDisplay(Hub75Driver &driver, ScoreInfo &scoreInfo);
+void changeScreen(ScreenState &currentState, Hub75Driver &driver);
+void handleEvent(ScreenState &currentState, Hub75Driver &driver);
+void createAllScreens(Hub75Driver &driver);
+
 // ---------------------------------
 // SCREEN/STATES SETUP
 // ---------------------------------
@@ -110,7 +125,10 @@ void endScreenDisplay(Hub75Driver &driver, ScoreInfo &scoreInfo);
 // Is there anything else that should be set when screens are made? If there are a lot of things, maybe we should make a separate function to initialize screen creation
 // --- Create all screens once ---
 void createAllScreens(Hub75Driver &driver) {
-    
+    // Create the timer once at the beginning
+    stateTimer = lv_timer_create(stateTimerCB, 1000, &driver);
+    lv_timer_pause(stateTimer); // Start paused; will be resumed when a state with a duration is entered
+
     // Start screen: should always show bitmap icons, top score: "x" and "start game" text
     // Refreshes to start screen when the game ends and "x" is updated if necessary
     // We need to get the actual bitmap icons
@@ -127,7 +145,7 @@ void createAllScreens(Hub75Driver &driver) {
 
         //topScoreText = lv_obj_create(startScreen);
         //lv_obj_set_size(topScoreText, 70, 6);
-        topScoreText = lv_obj_create(startScreen);
+        topScoreText = lv_label_create(startScreen);
         lv_obj_set_pos(topScoreText, 30, 20);
         lv_label_set_text(topScoreText, "Top Score: 0");
 
@@ -144,7 +162,7 @@ void createAllScreens(Hub75Driver &driver) {
         lv_obj_align(countdownText, LV_ALIGN_CENTER, 0, 0);
 
         // create container for "get ready" text
-        getReadyText = lv_obj_create(countdownScreen);
+        getReadyText = lv_label_create(countdownScreen);
         //lv_obj_set_size(getReadyText, 50, 6);
         lv_label_set_text(getReadyText, "Get Ready!");
         lv_obj_align(getReadyText, LV_ALIGN_BOTTOM_MID, 0, -4);
@@ -154,9 +172,7 @@ void createAllScreens(Hub75Driver &driver) {
     gameScreen = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(gameScreen, lv_color_make(0, 0, 0), LV_PART_MAIN);
     
-        // Create parent containers for the two panels and top/bottom text
-        // These positions and sizes are estimates until we can test on the actual hardware!
-        // I got rid of the top text for now
+        // Should we make these labels like everything else?
         lv_obj_t *left_panel = lv_obj_create(gameScreen);
         lv_obj_set_size(left_panel, 50, 25);
         lv_obj_align(left_panel, LV_ALIGN_LEFT_MID, 30, 0);
@@ -190,8 +206,6 @@ void changeScreen(ScreenState &currentState, Hub75Driver &driver) {
     switch (currentState) {
         case START_SCREEN:
             currentState = COUNTDOWN_SCREEN;
-            
-
             //loading countdown screen
             lv_screen_load(countdownScreen);
             countdownScreenDisplay(driver);
@@ -199,16 +213,13 @@ void changeScreen(ScreenState &currentState, Hub75Driver &driver) {
 
         case COUNTDOWN_SCREEN:
             currentState = GAME_SCREEN;
-            
-
             //loading gameplay screen
             lv_screen_load(gameScreen);
             gameScreenDisplay(driver, scoreInfo);
             break;
+
         case GAME_SCREEN:
             currentState = END_SCREEN;
-            
-
             //loading end screen
             lv_screen_load(endScreen);
             endScreenDisplay(driver, scoreInfo);
@@ -216,20 +227,26 @@ void changeScreen(ScreenState &currentState, Hub75Driver &driver) {
 
         case END_SCREEN:
             currentState = START_SCREEN;
-
             //return to start screen
             lv_screen_load(startScreen);
             startScreenDisplay(driver, topScore);
             break;
     }
+
+    // Reset the timer for the new state
+    timeRemaining = STATE_DURATION[currentState];
+    if (timeRemaining > 0) {
+        lv_timer_reset(stateTimer);
+        lv_timer_resume(stateTimer);
+    } else {
+        lv_timer_pause(stateTimer); // Pause the timer if the current state has no duration
+    }
 }
 
 // --- Event handling to determine when to change screens ---
 void handleEvent(ScreenState &currentState, Hub75Driver &driver) {
-    // Countdown starts on user input
-    // Game starts after countdown ends
-    // Game ends after countdown ends
-    // End screen goes back to start screen on user Finput
+    
+    // If there is outside input, we can check for it here and call changeScreen() when appropriate
 }
 
 // ---------------------------------
@@ -249,7 +266,19 @@ void startScreenDisplay(Hub75Driver &driver, int &topScore) {
     //driver.flip_buffer();  // Show the changes on the display
 }
 
-// --- Countdown logic ---
+// --- Timer callback ---
+void stateTimerCB(lv_timer_t *timer) {
+    
+    Hub75Driver *driver = (Hub75Driver *)lv_timer_get_user_data(timer);
+    
+    if (timeRemaining > 0) {
+        timeRemaining--;
+        lv_label_set_text_fmt(countdownText, "%d", timeRemaining);
+    } else {
+        // Time's up for the current state, move to the next state
+        changeScreen(currentState, *driver);
+    }
+}
 
 // --- Display the countdown screen ---
 void countdownScreenDisplay(Hub75Driver &driver) {

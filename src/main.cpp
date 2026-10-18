@@ -95,6 +95,7 @@ ScreenState currentState = START_SCREEN;
 // Timing variables
 static const int STATE_DURATION [] = {0, 3, 30, 0}; // Duration for each state in seconds
 static lv_timer_t *stateTimer = nullptr;
+static void stateTimerCB(lv_timer_t *timer);
 static int timeRemaining = 0;
 
 //global variables for screens and text objects

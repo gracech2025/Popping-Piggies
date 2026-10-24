@@ -89,6 +89,7 @@ uint16_t rgb888to565(uint8_t r, uint8_t g, uint8_t b) {
 // Declare global variables
 static lv_obj_t *startGameText;
 static lv_obj_t *topScoreText;
+static lv_obj_t *schoolNameText = nullptr;
 static int topScore = 0;
 ScreenState currentState = START_SCREEN;
 
@@ -108,6 +109,10 @@ static lv_obj_t *countdownText;
 static lv_obj_t *getReadyText;
 static lv_obj_t *finalScoreText;
 static lv_obj_t *timesUpText;
+
+static lv_obj_t *topScoreGameText = nullptr;
+static lv_obj_t *currentScoreText = nullptr;
+static lv_obj_t *streakText = nullptr; 
 static ScoreInfo scoreInfo = {0, 0, 0};
 
 //function declarations for screen displays
@@ -136,6 +141,9 @@ void createAllScreens(Hub75Driver &driver) {
     //lv_obj_t *startScreen = lv_obj_create(NULL);
     startScreen = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(startScreen, lv_color_make(0, 0, 0), LV_PART_MAIN);
+    schoolNameText = lv_label_create(startScreen);
+    lv_label_set_text(schoolNameText, "School Name");
+    lv_obj_align(schoolNameText, LV_ALIGN_TOP_MID, 0, 0);
 
         //startGameText = lv_obj_create(startScreen);
         //removed set size because 
@@ -174,17 +182,33 @@ void createAllScreens(Hub75Driver &driver) {
     lv_obj_set_style_bg_color(gameScreen, lv_color_make(0, 0, 0), LV_PART_MAIN);
     
         // Should we make these labels like everything else?
+        
+        //left container
         lv_obj_t *left_panel = lv_obj_create(gameScreen);
         lv_obj_set_size(left_panel, 50, 25);
         lv_obj_align(left_panel, LV_ALIGN_LEFT_MID, 30, 0);
+        //top score label inside left container
+        topScoreGameText = lv_label_create(left_panel);
+        lv_label_set_text(topScoreGameText, "Top: 0");
+        lv_obj_center(topScoreGameText);
 
+        //right container
         lv_obj_t *right_panel = lv_obj_create(gameScreen);
         lv_obj_set_size(right_panel, 50, 25);
         lv_obj_align(right_panel, LV_ALIGN_RIGHT_MID, -30, 0);
+        //current score inside right container
+        currentScoreText = lv_label_create(right_panel);
+        lv_label_set_text(currentScoreText, "Score: 0");
+        lv_obj_center(currentScoreText);
 
+        //bottom container
         lv_obj_t *bottom_text = lv_obj_create(gameScreen);
         lv_obj_set_size(bottom_text, 100, 6);
         lv_obj_align(bottom_text, LV_ALIGN_BOTTOM_MID, 0, -4);
+        //streak text inside bottom container
+        streakText = lv_label_create(bottom_text);
+        lv_label_set_text(streakText, "Streak: 0");
+        lv_obj_center(streakText);
 
     // End screen: should show final score, top score, and "play again" text
     // Refreshes to end screen when the game ends
@@ -264,8 +288,8 @@ void startScreenDisplay(Hub75Driver &driver, int &topScore) {
     lv_label_set_text(startGameText, "Start Game");
     lv_label_set_text_fmt(topScoreText, "Top Score: %d", topScore);
 
-    //driver.flip_buffer();  // Show the changes on the display
 }
+//driver.flip_buffer();  // Show the changes on the display
 
 // --- Timer callback ---
 void stateTimerCB(lv_timer_t *timer) {
@@ -274,7 +298,10 @@ void stateTimerCB(lv_timer_t *timer) {
     
     if (timeRemaining > 0) {
         timeRemaining--;
-        lv_label_set_text_fmt(countdownText, "%d", timeRemaining);
+        //only update the countdown text if we are in the countdown screen
+        if (currentState == COUNTDOWN_SCREEN && countdownText != nullptr) {
+            lv_label_set_text_fmt(countdownText, "%d", timeRemaining);
+        }
     } else {
         // Time's up for the current state, move to the next state
         changeScreen(currentState, *driver);
@@ -288,7 +315,7 @@ void countdownScreenDisplay(Hub75Driver &driver) {
     // Display countdown timer and "get ready" text
     //driver.flip_buffer();  // Show the changes on the display
     if (countdownText != nullptr) {
-        lv_label_set_text(countdownText, "3"); // Connect to countdown timer
+        lv_label_set_text_fmt(countdownText, "%d", STATE_DURATION[COUNTDOWN_SCREEN]); // Connect to countdown timer
     }
     if (getReadyText != nullptr) {
         lv_label_set_text(getReadyText, "Get Ready!");
@@ -297,13 +324,24 @@ void countdownScreenDisplay(Hub75Driver &driver) {
 
 // --- Display the game screen ---
 void gameScreenDisplay(Hub75Driver &driver, ScoreInfo &scoreInfo) {
+    
     // Stop any ongoing animations or timers
 
     // School name/start inputted from a laptop at the game
     // Score and combos are sent from other branch
 
     // Display current score, top score, and streak text
+    if (topScoreGameText != nullptr) {
+        lv_label_set_text_fmt(topScoreGameText, "Top: %d", scoreInfo.topScore);
+    }
+    if (currentScoreText != nullptr) {
+        lv_label_set_text_fmt(currentScoreText, "Score: %d", scoreInfo.currentScore);
+    }
+    if (streakText != nullptr) {
+        lv_label_set_text_fmt(streakText, "Streak: %d", scoreInfo.streak);
+
     //driver.flip_buffer();  // Show the changes on the display
+    }
 }
 
 // --- Display the end screen ---

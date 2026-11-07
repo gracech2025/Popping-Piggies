@@ -1,3 +1,18 @@
+/* ---------------------------------
+TODO:
+    - Add total hits, topUniversity, and current university to the game screen; add newhighscore
+    - Add bitmap icons to the start and countdown screens
+    - Live updates:
+        - Update current score and streak in real-time during the game
+        - Update top score in real-time if a new high score is achieved
+    - Connect to the game logic to receive score and streak updates
+    - Handle event logic
+    - Top score logic to compare current score with top score and update if necessary
+    - Streak logic
+    - End celebration?
+
+----------------------------------*/
+
 #include "hub75.h"
 #include "lvgl.h"
 #include <freertos/FreeRTOS.h>

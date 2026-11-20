@@ -1,45 +1,56 @@
-#include <stdio.h>
-#include "wav_player.h"
+// =============================================================================
+//  Popping Piggies — main.c
+//
+//  app_main() runs once at power-up. It sets up the hardware, then starts the
+//  FreeRTOS tasks that run the game. Each task is like a separate little
+//  program running at the same time:
+//
+//    laptop task  --commands-->  game task  --sounds-->  audio task
+//    (reads what you type)       (doors, beams, score)   (plays WAV files)
+//
+//  The game task is the only one that touches the pin expanders (motors and
+//  beams). Other tasks talk to it through a queue (a FreeRTOS "mailbox").
+//  The LED display will be added later as one more task.
+//
+//  Combines the speaker branch (now in audio.c) and the motor_actuation
+//  branch (now in expander.c, motors.c, beams.c and game.c).
+// =============================================================================
 
-void app_main(void) {
-    wav_info_t wav_data;
-    i2s_chan_handle_t tx_handle;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "nvs_flash.h"
 
-    // Must follow naming convention: _binary_[file_name]_wav_start
-    extern const uint8_t _binary_test_wav_start[];
+#include "expander.h"
+#include "motors.h"
+#include "audio.h"
+#include "game.h"
+#include "laptop.h"
 
-    // Safety check
-    if (parse_wav(_binary_test_wav_start, &wav_data) == false) {
-        return;
+static const char *TAG = "main";
+
+void app_main(void)
+{
+    ESP_LOGI(TAG, "Popping Piggies starting");
+
+    // Flash storage (used to remember the top score).
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
     }
+    ESP_ERROR_CHECK(err);
 
-    i2s_chan_config_t channel_config = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
-    i2s_new_channel(&channel_config, &tx_handle, NULL);
+    // Hardware
+    expanders_init();   // I2C + pin expanders (warns and continues if not connected)
+    motors_init();      // make sure every door motor is stopped
 
-    // Configure hardware
-    i2s_std_config_t std_config = {
-        // Clock settings
-        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(wav_data.sample_rate),
+    // Tasks
+    audio_init();       // starts the audio task
+    game_init();        // creates the game's command queue
+    //          function     name      stack(bytes) arg   priority  handle
+    xTaskCreate(game_task,   "game",   4096,        NULL, 5,        NULL);
+    xTaskCreate(laptop_task, "laptop", 4096,        NULL, 4,        NULL);
 
-        // GPIO Pins
-        .gpio_cfg = {
-            .mclk = I2S_GPIO_UNUSED,
-            .din = I2S_GPIO_UNUSED,
-            // Change the pins here as needed
-            .bclk = GPIO_NUM_1,
-            .ws = GPIO_NUM_2,
-            .dout = GPIO_NUM_3
-        },
-
-        // Stereo format
-        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO)
-    };
-
-    i2s_channel_init_std_mode(tx_handle, &std_config);
-    i2s_channel_enable(tx_handle);
-    play_wav(&wav_data, tx_handle);
-
-    // Free memory
-    i2s_channel_disable(tx_handle);
-    i2s_del_channel(tx_handle);
+    // app_main can return now; the tasks keep running.
 }
